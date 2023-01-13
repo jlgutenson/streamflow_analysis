@@ -167,11 +167,15 @@ if __name__ == '__main__':
             if not daily_data or dict_key not in daily_data_keys_list:
                 daily_flow = "nan"
                 streamflow_percentile = "nan"
+                usgs_flows.append(daily_flow)
+                usgs_percentiles.append(streamflow_percentile)
             else:
                 value_list = daily_data[dict_key]['values']
                 if len(value_list) == 0:
                     daily_flow = "nan"
                     streamflow_percentile = "nan"
+                    usgs_flows.append(daily_flow)
+                    usgs_percentiles.append(streamflow_percentile)
                 else:
                     value_dict = value_list[0]
                     daily_flow = float(value_dict['value'])*0.0283168 # convert to cms
