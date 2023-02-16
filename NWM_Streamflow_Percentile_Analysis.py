@@ -113,7 +113,7 @@ if __name__ == '__main__':
     # gage_id_list = ['10396000']
     start_date_test = datetime(2011, 1, 1)
     end_date_test = datetime(2020, 12, 31)
-    test_dates = pd.date_range(start_date_test,end_date_test-timedelta(days=1),freq='d')
+    test_dates = pd.date_range(start_date_test,end_date_test,freq='d')
     gage_zero_flow_days_dict = {}
     gage_average_yearly_zero_flow_days_dict = {}
 
