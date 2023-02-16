@@ -48,14 +48,17 @@ if __name__ == '__main__':
     percentile_nses = []
     streamflow_rsqs = []
     percentile_rsqs = []
+    accuracys = []
 
     # load in GageLoc data with NHDPlus-Gage Crosswalk
     path_to_gage_shp = "/data/2023_NHD_Nevada/Shapefiles/GageLoc.shp"
+    # path_to_gage_shp = r"C:\Users\RDCHLJLG\Desktop\Gutenson\2023_NHD_Nevada\Shapefiles\GageLoc\GageLoc.shp"
     gage_gdf = gpd.read_file(path_to_gage_shp, dtype={'SOURCE_FEA': 'str', 'FLComID': 'int'})
     river_ids_list = gage_gdf['FLComID'].to_list()
 
     # pull down NWM data using the GageLoc file
     output_days_nc_path = "/data/2023_NHD_Nevada/Scripts/nwm_daily_streamflow.nc"
+    # output_days_nc_path = r"D:\2023_WRAP_Streamflow_APT\Netcdf\nwm_daily_streamflow.nc"
     if os.path.exists(output_days_nc_path) is True:
         pass
     else:
@@ -107,11 +110,10 @@ if __name__ == '__main__':
 
     # pull flow data from NWIS
     gage_id_list = gage_gdf['SOURCE_FEA'].to_list()
-    # gage_id_list = gage_id_list[0:9]
+    # gage_id_list = ['10396000']
     start_date_test = datetime(2011, 1, 1)
     end_date_test = datetime(2020, 12, 31)
     test_dates = pd.date_range(start_date_test,end_date_test-timedelta(days=1),freq='d')
-    gage_id_success_list = []
     gage_zero_flow_days_dict = {}
     gage_average_yearly_zero_flow_days_dict = {}
 
@@ -174,7 +176,7 @@ if __name__ == '__main__':
             gage_streamflow_df = pd.DataFrame(data=daily_data[dict_key]['values'])
             gage_streamflow_df['datetime'] = pd.to_datetime(gage_streamflow_df['datetime'])
             gage_streamflow_df = gage_streamflow_df.set_index('datetime')
-            print(gage_streamflow_df)
+            # print(gage_streamflow_df)
 
             # pull the NWM time series
             nwm_df = get_nwm_streamflow_timeseries(rivid, time_, ts_ds)
@@ -202,6 +204,7 @@ if __name__ == '__main__':
             usgs_percentiles = []
             nwm_flows = []
             nwm_percentiles = []
+            correct_normalcy_calculations = []
 
             past_year = 2011
 
@@ -210,11 +213,12 @@ if __name__ == '__main__':
             lon = "nan"
 
             for date in test_dates:
-                print(date)
+                # print(date)
                 daily_flow = "nan"
-                streamflow_percentile = "nan"
+                usgs_streamflow_percentile = "nan"
                 nwm_test_df_filtered = "nan"
                 nwm_streamflow_percentile = "nan"
+                correct_normalcy_calculation = "nan"
 
                 daily_flow_df = gage_streamflow_df.loc[date:date]
                 daily_flow = daily_flow_df['value'].loc[daily_flow_df.index[0]]
@@ -240,50 +244,31 @@ if __name__ == '__main__':
 
                 # interpolating the daily observed USGS streamflow percentile here
                 if daily_flow <= min_va:
-                    streamflow_percentile = 0.00
+                    usgs_streamflow_percentile = 0.00
                 elif daily_flow >= min_va and daily_flow <= p05_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, min_va, 0, p05_va, 5)
-                    # print("Between 0 and 5")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, min_va, 0, p05_va, 5)
                 elif daily_flow > p05_va and daily_flow <= p10_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p05_va, 5, p10_va, 10)
-                    # print(p)
-                    # print("Between 5 and 10")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p05_va, 5, p10_va, 10)
                 elif daily_flow > p10_va and daily_flow <= p20_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p10_va, 10, p20_va, 20)
-                    # print(p)
-                    # print("Between 10 and 20")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p10_va, 10, p20_va, 20)
                 elif daily_flow > p20_va and daily_flow <= p25_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p20_va, 20, p25_va, 25)
-                    # print(p)
-                    # print("Between 20 and 25")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p20_va, 20, p25_va, 25)
                 elif daily_flow > p25_va and daily_flow <= p50_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p25_va, 25, p50_va, 50)
-                    # print(p)
-                    # print("Between 25 and 50")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p25_va, 25, p50_va, 50)
                 elif daily_flow > p50_va and daily_flow <= p75_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p50_va, 50, p75_va, 75)
-                    # print(p)
-                    # print("Between 50 and 75")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p50_va, 50, p75_va, 75)
                 elif daily_flow > p75_va and daily_flow <= p80_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p75_va, 75, p80_va, 80)
-                    # print(p)
-                    # print("Between 75 and 80")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p75_va, 75, p80_va, 80)
                 elif daily_flow > p80_va and daily_flow <= p90_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p80_va, 80, p90_va, 90)
-                    # print(p)
-                    # print("Between 80 and 90")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p80_va, 80, p90_va, 90)
                 elif daily_flow > p90_va and daily_flow <= p95_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p90_va, 90, p95_va, 95)
-                    # print(p)
-                    # print("Between 90 and 95")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p90_va, 90, p95_va, 95)
                 elif daily_flow > p95_va and daily_flow <= max_va:
-                    streamflow_percentile = linear_interpolation(daily_flow, p95_va, 95, max_va, 100)
-                    # print(p)
-                    # print("Between 95 and 100")
+                    usgs_streamflow_percentile = linear_interpolation(daily_flow, p95_va, 95, max_va, 100)
                 elif daily_flow > max_va:
-                    streamflow_percentile = 100.00
+                    usgs_streamflow_percentile = 100.00
                 # print(streamflow_percentile)
-                usgs_percentiles.append(streamflow_percentile)
+                usgs_percentiles.append(usgs_streamflow_percentile)
 
                 # determine when to update NWM perecentiles with additional data
                 current_year = date.year
@@ -328,58 +313,44 @@ if __name__ == '__main__':
                 if nwm_test_df_filtered <= min_va_nwm_filtered:
                     nwm_streamflow_percentile = 0.00
                 elif nwm_test_df_filtered >= min_va_nwm_filtered and nwm_test_df_filtered <= p05_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, min_va_nwm_filtered, 0, p05_va_nwm_filtered, 5)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print("Between 0 and 5")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, min_va_nwm_filtered, 0, p05_va_nwm_filtered, 5)
                 elif nwm_test_df_filtered > p05_va_nwm_filtered and nwm_test_df_filtered <= p10_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p05_va_nwm_filtered, 5, p10_va_nwm_filtered, 10)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 5 and 10")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p05_va_nwm_filtered, 5, p10_va_nwm_filtered, 10)
                 elif nwm_test_df_filtered > p10_va_nwm_filtered and nwm_test_df_filtered <= p20_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p10_va_nwm_filtered, 10, p20_va_nwm_filtered, 20)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 10 and 20")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p10_va_nwm_filtered, 10, p20_va_nwm_filtered, 20)
                 elif nwm_test_df_filtered > p20_va_nwm_filtered and nwm_test_df_filtered <= p25_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p20_va_nwm_filtered, 20, p25_va_nwm_filtered, 25)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 20 and 25")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p20_va_nwm_filtered, 20, p25_va_nwm_filtered, 25)
                 elif nwm_test_df_filtered > p25_va_nwm_filtered and nwm_test_df_filtered <= p50_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p25_va_nwm_filtered, 25, p50_va_nwm_filtered, 50)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 25 and 50")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p25_va_nwm_filtered, 25, p50_va_nwm_filtered, 50)
                 elif nwm_test_df_filtered > p50_va_nwm_filtered and nwm_test_df_filtered <= p75_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p50_va_nwm_filtered, 50, p75_va_nwm_filtered, 75)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 50 and 75")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p50_va_nwm_filtered, 50, p75_va_nwm_filtered, 75)
                 elif nwm_test_df_filtered > p75_va_nwm_filtered and nwm_test_df_filtered <= p80_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p75_va_nwm_filtered, 75, p80_va_nwm_filtered, 80)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 75 and 80")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p75_va_nwm_filtered, 75, p80_va_nwm_filtered, 80)
                 elif nwm_test_df_filtered > p80_va_nwm_filtered and nwm_test_df_filtered <= p90_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p80_va_nwm_filtered, 80, p90_va_nwm_filtered, 90)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 80 and 90")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p80_va_nwm_filtered, 80, p90_va_nwm_filtered, 90)
                 elif nwm_test_df_filtered > p90_va_nwm_filtered and nwm_test_df_filtered <= p95_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p90_va_nwm_filtered, 90, p95_va_nwm_filtered, 95)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 90 and 95")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p90_va_nwm_filtered, 90, p95_va_nwm_filtered, 95)
                 elif nwm_test_df_filtered > p95_va_nwm_filtered and nwm_test_df_filtered <= max_va_nwm_filtered:
-                    streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p95_va_nwm_filtered, 95, max_va_nwm_filtered, 100)
-                    nwm_streamflow_percentile = streamflow_percentile
-                    # print(p)
-                    # print("Between 95 and 100")
+                    nwm_streamflow_percentile = linear_interpolation(nwm_test_df_filtered, p95_va_nwm_filtered, 95, max_va_nwm_filtered, 100)
                 elif nwm_test_df_filtered > max_va_nwm_filtered:
                     nwm_streamflow_percentile = 100.00
 
                 nwm_percentiles.append(nwm_streamflow_percentile)
+
+                # calculating if the streamflow normalcy categories are accurately predicted
+                # does the gage and NWM agree that the flow is below normal
+                if nwm_streamflow_percentile < 25 and usgs_streamflow_percentile < 25:
+                    correct_normalcy_calculation = 1
+                # does the gage and NWM agree that the flow is normal
+                elif nwm_streamflow_percentile >= 25 and usgs_streamflow_percentile >= 25 and nwm_streamflow_percentile <= 75 and usgs_streamflow_percentile <= 75:
+                    correct_normalcy_calculation = 1
+                # does the gage and NWM agree that the flow is above normal
+                elif nwm_streamflow_percentile > 75 and usgs_streamflow_percentile > 75:
+                    correct_normalcy_calculation = 1
+                # the gage and the NWM do not agree
+                else:
+                    correct_normalcy_calculation = 0
+                correct_normalcy_calculations.append(correct_normalcy_calculation)
 
             # print(len(test_dates))
             # print(len(nwm_flows))
@@ -407,8 +378,6 @@ if __name__ == '__main__':
 
             # Setting the Date as index
             dataframe = dataframe.set_index("date")
-
-            print(dataframe)
 
             # Calculate NSE
             try:
@@ -451,16 +420,25 @@ if __name__ == '__main__':
                 r_squared = "nan"
                 percentile_rsqs.append(r_squared)
 
+            try:
+                accuracy = sum(correct_normalcy_calculations)/len(correct_normalcy_calculations)
+                accuracys.append(accuracy)
+            except:
+                accuracy = "nan"
+                accuracys.append(accuracy)
+
             gage_ids.append(gage_id)
             comids.append(rivid)
             lats.append(lat)
             lons.append(lon)
+
             # except:
             #     print("didn't work for {0}".format(gage_id))
             #     pass
 
         except:
             pass
+
 
     output_data = {
         'gage': gage_ids,
@@ -477,14 +455,15 @@ if __name__ == '__main__':
 
         'streamflow_rsquared': streamflow_rsqs,
 
-        'percentile_rsquared': percentile_rsqs
+        'percentile_rsquared': percentile_rsqs,
 
+        'accuracy': accuracys
     }
 
     # Create dataframe
-    dataframe = pd.DataFrame(output_data,columns=['gage','comid','lat','lon','streamflow_nse',
-                                                  'percentile_nse','streamflow_rsquared','percentile_rsquared'])
+    dataframe = pd.DataFrame(output_data)
 
     # output the results in csv file
     output_csv = "/data/2023_WRAP_Streamflow_APT/Tables/GageLoc.csv"
+    # output_csv = r"C:\Users\RDCHLJLG\Desktop\Gutenson\2023_WRAP_Streamflow_APT\Shapefiles\WillametteGages_output.csv"
     dataframe.to_csv(output_csv)
